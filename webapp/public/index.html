@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Player</title>
+    <link rel="stylesheet" href="/styles/main.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<style>
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    border: 0;
+}
+</style>
+<body>
+    <div class="player-container">
+        <div class="player-header">
+            <h1>Music Player</h1>
+        </div>
+        
+        <div class="player-content">
+            <div class="track-info">
+                <img id="track-art" src="" alt="Track Art">
+                <label for="progress-bar" class="visually-hidden">Track progress</label>
+                <input type="range" id="progress-bar" min="0" max="100" value="0" title="Track progress">
+                <p id="track-artist">Unknown artist</p>
+            </div>
+            
+            <div class="player-controls">
+                <button id="prev-btn" class="control-btn">⏮</button>
+                <button id="play-btn" class="control-btn">▶</button>
+                <button id="next-btn" class="control-btn">⏭</button>
+                <button id="stop-btn" class="control-btn">⏹</button>
+            </div>
+            
+            <div class="progress-container">
+                <input type="range" id="progress-bar" min="0" max="100" value="0">
+                <div class="time-display">
+                    <span id="current-time">0:00</span>
+                    <span id="total-time">0:00</span>
+                </div>
+            </div>
+            
+            <div class="volume-control">
+                <span>🔈</span>
+                <label for="volume-bar" class="visually-hidden">Volume control</label>
+                <input type="range" id="volume-bar" min="0" max="100" value="50" title="Volume control">
+            </div>
+        </div>
+        
+        <div class="search-results" id="search-results">
+            <!-- Results will be populated here -->
+        </div>
+    </div>
+    
+    <script src="/scripts/app.js"></script>
+</body>
+</html>
+

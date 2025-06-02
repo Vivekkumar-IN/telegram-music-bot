@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./temp:/app/temp
+    environment:
+      - PORT=3000
+      - BASE_URL=http://localhost:3000
+      - TEMP_DIR=/app/temp
+    depends_on:
+      - redis
+
+  bot:
+    build: ./bot
+    environment:
+      - TELEGRAM_BOT_TOKEN=your_bot_token_here
+      - WEBAPP_BASE_URL=http://localhost:3000
+      - BACKEND_API_URL=http://backend:3000/api
+    depends_on:
+      - backend
+
+  webapp:
+    build: ./webapp
+    ports:
+      - "3001:3000"
+    environment:
+      - VITE_API_URL=http://backend:3000/api
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:
+  
