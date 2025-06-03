@@ -268,14 +268,15 @@ document.addEventListener('DOMContentLoaded', () => {
         trackArtist.textContent = track.artist;
     }
     
+    // Modify the updateProgress function to include position updates:
     function updateProgress() {
         const { currentTime, duration } = audio;
         const progressPercent = (currentTime / duration) * 100;
         progressBar.value = progressPercent;
         currentTimeEl.textContent = formatTime(currentTime);
         
-        // Update backend with current position periodically
-        if (Date.now() % 2000 < 50 && tg.initDataUnsafe?.chat?.id) {
+        // Update backend with current position
+        if (tg.initDataUnsafe?.chat?.id) {
             fetch(`/api/player/position?chatId=${tg.initDataUnsafe.chat.id}&position=${currentTime}`);
         }
     }

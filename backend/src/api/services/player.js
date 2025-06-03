@@ -1,66 +1,224 @@
-import { cache } from './cache';
+import { mongoDBService } from './mongodb';
 
 class PlayerService {
-    constructor() {
-        this.players = new Map(); // chatId -> player state
+    /**
+     * Get or create player state for a chat
+     * @param {string} chatId - Telegram chat ID
+     * @returns {Promise<Object>} Player state
+     */
+    async getPlayer(chatId) {
+        try {
+            const player = await mongoDBService.getPlayer(chatId);
+            return player;
+        } catch (error) {
+            console.error('Error getting player:', error);
+            throw new Error('Failed to get player state');
+        }
     }
 
-    getPlayer(chatId) {
-        if (!this.players.has(chatId)) {
-            this.players.set(chatId, {
-                currentTrack: null,
-                queue: [],
+    /**
+     * Start playing a track
+     * @param {string} chatId - Telegram chat ID
+     * @param {Object} track - Track to play
+     * @returns {Promise<Object>} Updated player state
+     */
+    async play(chatId, track) {
+        try {
+            const update = {
+                currentTrack: {
+                    id: track.id,
+                    title: track.title,
+                    artist: track.artist,
+                    duration: track.duration,
+                    thumbnail: track.thumbnail,
+                    url: track.url
+                },
+                queue: [{
+                    id: track.id,
+                    title: track.title,
+                    artist: track.artist,
+                    duration: track.duration,
+                    thumbnail: track.thumbnail
+                }],
+                isPlaying: true,
+                position: 0,
+                updatedAt: new Date()
+            };
+
+            await mongoDBService.updatePlayer(chatId, update);
+            return update;
+        } catch (error) {
+            console.error('Error in play:', error);
+            throw new Error('Failed to start playback');
+        }
+    }
+
+    /**
+     * Pause playback
+     * @param {string} chatId - Telegram chat ID
+     * @returns {Promise<Object>} Updated player state
+     */
+    async pause(chatId) {
+        try {
+            const update = { 
+                isPlaying: false,
+                updatedAt: new Date() 
+            };
+            await mongoDBService.updatePlayer(chatId, update);
+            return await mongoDBService.getPlayer(chatId);
+        } catch (error) {
+            console.error('Error in pause:', error);
+            throw new Error('Failed to pause playback');
+        }
+    }
+
+    /**
+     * Resume playback
+     * @param {string} chatId - Telegram chat ID
+     * @returns {Promise<Object>} Updated player state
+     */
+    async resume(chatId) {
+        try {
+            const update = { 
+                isPlaying: true,
+                updatedAt: new Date() 
+            };
+            await mongoDBService.updatePlayer(chatId, update);
+            return await mongoDBService.getPlayer(chatId);
+        } catch (error) {
+            console.error('Error in resume:', error);
+            throw new Error('Failed to resume playback');
+        }
+    }
+
+    /**
+     * Stop playback (reset position)
+     * @param {string} chatId - Telegram chat ID
+     * @returns {Promise<Object>} Updated player state
+     */
+    async stop(chatId) {
+        try {
+            const update = {
                 isPlaying: false,
                 position: 0,
-                volume: 50
+                updatedAt: new Date()
+            };
+            await mongoDBService.updatePlayer(chatId, update);
+            return await mongoDBService.getPlayer(chatId);
+        } catch (error) {
+            console.error('Error in stop:', error);
+            throw new Error('Failed to stop playback');
+        }
+    }
+
+    /**
+     * End session completely
+     * @param {string} chatId - Telegram chat ID
+     * @returns {Promise<null>}
+     */
+    async end(chatId) {
+        try {
+            await mongoDBService.deletePlayer(chatId);
+            return null;
+        } catch (error) {
+            console.error('Error in end:', error);
+            throw new Error('Failed to end session');
+        }
+    }
+
+    /**
+     * Update playback position
+     * @param {string} chatId - Telegram chat ID
+     * @param {number} position - Current position in seconds
+     * @returns {Promise<void>}
+     */
+    async updatePosition(chatId, position) {
+        try {
+            await mongoDBService.updatePlayer(chatId, {
+                position: parseFloat(position),
+                updatedAt: new Date()
             });
+        } catch (error) {
+            console.error('Error updating position:', error);
+            throw new Error('Failed to update playback position');
         }
-        return this.players.get(chatId);
     }
 
-    play(chatId, track) {
-        const player = this.getPlayer(chatId);
-        player.currentTrack = track;
-        player.isPlaying = true;
-        player.position = 0;
-        return player;
-    }
+    /**
+     * Add track to queue
+     * @param {string} chatId - Telegram chat ID
+     * @param {Object} track - Track to add
+     * @returns {Promise<Object>} Updated player state
+     */
+    async addToQueue(chatId, track) {
+        try {
+            const player = await mongoDBService.getPlayer(chatId);
+            const newQueue = [...player.queue, {
+                id: track.id,
+                title: track.title,
+                artist: track.artist,
+                duration: track.duration,
+                thumbnail: track.thumbnail
+            }];
 
-    pause(chatId) {
-        const player = this.getPlayer(chatId);
-        if (player.isPlaying) {
-            player.isPlaying = false;
+            await mongoDBService.updatePlayer(chatId, {
+                queue: newQueue,
+                updatedAt: new Date()
+            });
+
+            return await mongoDBService.getPlayer(chatId);
+        } catch (error) {
+            console.error('Error adding to queue:', error);
+            throw new Error('Failed to add track to queue');
         }
-        return player;
     }
 
-    resume(chatId) {
-        const player = this.getPlayer(chatId);
-        if (!player.isPlaying) {
-            player.isPlaying = true;
+    /**
+     * Skip to next track in queue
+     * @param {string} chatId - Telegram chat ID
+     * @returns {Promise<Object>} Updated player state
+     */
+    async skipNext(chatId) {
+        try {
+            const player = await mongoDBService.getPlayer(chatId);
+            
+            if (player.queue.length <= 1) {
+                throw new Error('No tracks in queue to skip to');
+            }
+
+            const newQueue = player.queue.slice(1);
+            const nextTrack = newQueue[0];
+
+            const update = {
+                currentTrack: nextTrack,
+                queue: newQueue,
+                isPlaying: true,
+                position: 0,
+                updatedAt: new Date()
+            };
+
+            await mongoDBService.updatePlayer(chatId, update);
+            return update;
+        } catch (error) {
+            console.error('Error skipping next:', error);
+            throw new Error('Failed to skip to next track');
         }
-        return player;
     }
 
-    stop(chatId) {
-        const player = this.getPlayer(chatId);
-        player.isPlaying = false;
-        player.position = 0;
-        return player;
-    }
-
-    end(chatId) {
-        const player = this.getPlayer(chatId);
-        player.currentTrack = null;
-        player.isPlaying = false;
-        player.position = 0;
-        this.players.delete(chatId);
-        return null;
-    }
-
-    getState(chatId) {
-        return this.getPlayer(chatId);
+    /**
+     * Get current player state
+     * @param {string} chatId - Telegram chat ID
+     * @returns {Promise<Object>} Player state
+     */
+    async getState(chatId) {
+        try {
+            return await mongoDBService.getPlayer(chatId);
+        } catch (error) {
+            console.error('Error getting state:', error);
+            throw new Error('Failed to get player state');
+        }
     }
 }
 
 export const playerService = new PlayerService();
+
