@@ -3,8 +3,16 @@ import cors from 'cors';
 import router from './api/routes';
 import { config } from './config';
 import { mongoDBService } from './services/mongodb';
+import { streamCleaner } from './services/streamCleaner';
+import { mongoMonitor } from './services/mongoMonitor';
 
 const app = express();
+
+streamCleaner.cleanup();
+
+setInterval(() => {
+    console.log('MongoDB Status:', mongoMonitor.status);
+}, 60000);
 
 // Middleware
 app.use(cors());
