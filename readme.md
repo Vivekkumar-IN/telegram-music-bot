@@ -1,18 +1,32 @@
 # Telegram Music Bot 🎵
 
-A feature-rich Telegram music bot with Web App interface that supports YouTube and YouTube Music links, powered by yt-dlp.
+A feature-rich Telegram music bot with Web App interface that supports YouTube and YouTube Music links, powered by yt-dlp and MongoDB.
 
 <!-- ![Demo Screenshot](demo-screenshot.png) -->
 
 ## Features ✨
 
-- 🎧 Play music from YouTube and YouTube Music
+### Core Functionality
+- 🎧 Play audio from YouTube/YouTube Music links
 - 🔍 Search for tracks directly from Telegram
-- 🎛️ Web App player with play/pause/stop controls
-- ⏭️ Skip tracks and control volume
-- ⏳ Progress bar and time display
-- 🔄 Caching for faster performance
-- 🐳 Docker support for easy deployment
+- 📱 Interactive Web App player interface
+- 🐳 Docker-ready deployment
+
+### Playback Controls
+- ▶️/⏸️ Play/Pause toggle
+- ⏭️ Next track in queue
+- ⏮️ Previous track
+- 🔈 Volume control (0-100%)
+- ⏩ Playback speed (0.5x-2.0x)
+- 🎯 Seekbar scrubbing
+- ⏹️ Stop/reset playback
+- ❌ End session completely
+
+### Technical Highlights
+- 🍃 MongoDB persistence for player state
+- ⚡ yt-dlp with speed/quality control
+- 🔄 Real-time sync across devices
+- 📊 Cached audio streams
 
 ## Technologies Used 🛠️
 
@@ -22,101 +36,98 @@ A feature-rich Telegram music bot with Web App interface that supports YouTube a
 - **Caching**: node-cache
 - **Containerization**: Docker
 
-## Installation 🚀
+## Setup Guide 🛠️
 
 ### Prerequisites
+1. **Telegram Bot Token** ([@BotFather](https://t.me/BotFather))
+2. **MongoDB** (local or [Atlas](https://www.mongodb.com/atlas))
+3. **yt-dlp** installed system-wide
+4. **FFmpeg** for audio processing
+5. **Node.js v16+**
 
-- Node.js (v16+)
-- yt-dlp installed on your system
-- Telegram Bot Token from [@BotFather](https://t.me/BotFather)
-- Redis (for caching, optional)
-
-### 1. Clone the repository
+### Clone the repository
 
 ```bash
 git clone https://github.com/Pranav-Saraswat/telegram-music-bot.git
 cd telegram-music-bot
 ```
 
-### 2. Install dependencies
+### Configuration
+1. Rename `.env.example` to `.env` and populate:
 
-```bash
+```env
 # Backend
+MONGO_URI=mongodb://localhost:27017
+YTDLP_PATH=/usr/local/bin/yt-dlp
+TEMP_DIR=./temp_audio
+
+# Bot
+TELEGRAM_BOT_TOKEN=your_bot_token
+WEBAPP_BASE_URL=https://yourdomain.com
+```
+
+### New Installation Steps
+```bash
+# Install yt-dlp and FFmpeg
+sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+sudo chmod a+rx /usr/local/bin/yt-dlp
+sudo apt install ffmpeg  # Ubuntu/Debian
+
+# Install dependencies
 cd backend && npm install
-
-# Bot
 cd ../bot && npm install
-
-# Web App
 cd ../webapp && npm install
-```
 
-### 3. Configure environment variables
-
-Create `.env` files in each directory with the required variables (see `.env.example` files).
-
-### 4. Run the services
-
-```bash
-# In separate terminals:
-
-# Backend
+# Start services
+docker-compose up -d  # MongoDB
 cd backend && npm start
-
-# Bot
 cd ../bot && npm start
-
-# Web App (development)
-cd ../webapp && npm run dev
 ```
 
-### Docker Setup (Alternative)
+## Updated API Endpoints 🔌
 
-```bash
-docker-compose up --build
-```
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/player/play` | GET | Start playback |
+| `/api/player/seek` | GET | Update playback position |
+| `/api/player/speed` | GET | Adjust playback speed |
+| `/api/player/volume` | GET | Change volume level |
+| `/api/player/state` | GET | Get current player state |
 
-## Configuration ⚙️
+## New Bot Commands 🎛️
 
-### Backend
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/speed [value]` | Set playback speed | `/speed 1.5` |
+| `/seek [seconds]` | Jump to position | `/seek 120` |
+| `/volume [1-100]` | Adjust volume | `/volume 80` |
 
-- `PORT`: Server port (default: 3000)
-- `BASE_URL`: Base URL for the backend
-- `TEMP_DIR`: Directory for temporary files
-- `YTDLP_PATH`: Path to yt-dlp executable
+## Deployment Notes 🚀
 
-### Bot
+### MongoDB Considerations
+- Ensure indexes are created:
+  ```javascript
+  db.players.createIndex({ chatId: 1 }, { unique: true })
+  ```
+- Set up TTL for automatic cleanup:
+  ```javascript
+  db.players.createIndex({ updatedAt: 1 }, { expireAfterSeconds: 2592000 }) // 30 days
+  ```
 
-- `TELEGRAM_BOT_TOKEN`: Your bot token from BotFather
-- `WEBAPP_BASE_URL`: URL where the web app is hosted
-- `BACKEND_API_URL`: URL of the backend API
+### Performance Tips
+- Allocate at least 512MB RAM for MongoDB
+- Set up a cron job for temp file cleanup:
+  ```bash
+  0 * * * * find /path/to/temp_audio -name "stream_*" -mmin +60 -delete
+  ```
 
-## Deployment ☁️
+## Troubleshooting 🔧
 
-### Manual Deployment
-
-1. Build the web app:
-   ```bash
-   cd webapp && npm run build
-   ```
-
-2. Set up a reverse proxy (Nginx/Apache) for the backend and web app.
-
-### Docker Deployment
-
-1. Build and run with Docker Compose:
-   ```bash
-   docker-compose up --build -d
-   ```
-
-2. Configure your reverse proxy to point to the Docker services.
-
-## Usage 📱
-
-1. Start a chat with your bot in Telegram
-2. Use the `/play` command followed by a search query or YouTube URL
-3. The bot will respond with a button to open the Web App player
-4. Control playback from the Web App interface
+| Issue | Solution |
+|-------|----------|
+| Speed control not working | Verify yt-dlp version ≥ 2023.07.06 |
+| Seek jumps back | Check MongoDB connection latency |
+| Volume resets | Ensure `volume` field exists in player document |
 
 ## Contributing 🤝
 
@@ -131,5 +142,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you find this project useful, consider starring the repository or buying me a coffee!
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/pranav_saraswat)
-
 
