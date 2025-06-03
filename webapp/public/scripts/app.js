@@ -11,6 +11,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTrackIndex = 0;
     let isPlaying = false;
     let updateInterval;
+    let lastPositionUpdate = 0;
+    let isSeeking = false;
+    let seekTimeout = null;
+    let currentSpeed = 1.0;
     
     // DOM elements
     const trackArt = document.getElementById('track-art');
@@ -27,6 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const volumeBar = document.getElementById('volume-bar');
     const searchResults = document.getElementById('search-results');
     const loadingIndicator = document.getElementById('loading');
+    const speedDownBtn = document.getElementById('speed-down');
+    const speedUpBtn = document.getElementById('speed-up');
+    const speedDisplay = document.getElementById('speed-display');
     
     // Initialize player
     initPlayer();
@@ -46,7 +53,45 @@ document.addEventListener('DOMContentLoaded', () => {
         prevBtn.addEventListener('click', playPrevious);
         nextBtn.addEventListener('click', playNext);
         endBtn.addEventListener('click', endSession);
-        progressBar.addEventListener('input', seek);
+        speedDownBtn.addEventListener('click', () => adjustSpeed(-0.25));
+        speedUpBtn.addEventListener('click', () => adjustSpeed(0.25));
+        progressBar.addEventListener('input', () => {
+            isSeeking = true;
+            const seekTime = (progressBar.value / 100) * audio.duration;
+            currentTimeEl.textContent = formatTime(seekTime);
+            // Clear any pending seek update
+            if (seekTimeout) clearTimeout(seekTimeout);
+            // Update after 500ms of no changes (debounce)
+            seekTimeout = setTimeout(() => {
+                audio.currentTime = seekTime;
+                isSeeking = false;
+                
+                // Immediately update backend on seek completion
+                if (tg.initDataUnsafe?.chat?.id) {
+                    fetch(`/api/player/position?chatId=${tg.initDataUnsafe.chat.id}&position=${seekTime}`)
+                    .catch(err => console.error('Seek update failed:', err));
+                }
+            }, 500);
+        });
+        progressBar.addEventListener('change', () => {
+            // Immediate update when user releases slider
+            if (seekTimeout) clearTimeout(seekTimeout);
+            const seekTime = (progressBar.value / 100) * audio.duration;
+            audio.currentTime = seekTime;
+            isSeeking = false;
+            
+            if (tg.initDataUnsafe?.chat?.id) {
+                fetch(`/api/player/position?chatId=${tg.initDataUnsafe.chat.id}&position=${seekTime}`)
+                .catch(err => console.error('Seek update failed:', err));
+            }
+        });
+        progressBar.addEventListener('mousedown', () => {
+             isSeeking = true;
+        });
+        progressBar.addEventListener('mouseup', () => {
+            isSeeking = false;
+        });
+
         volumeBar.addEventListener('input', setVolume);
         
         audio.addEventListener('timeupdate', updateProgress);
@@ -67,10 +112,29 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Set initial volume
         audio.volume = volumeBar.value / 100;
+
+        // Call this in your initPlayer():
+        initVolume(tg.initDataUnsafe?.chat?.id);
+
+        // Call this in your initPlayer():
+        initSpeed(tg.initDataUnsafe?.chat?.id);
         
         // Check for existing player state
         if (tg.initDataUnsafe?.chat?.id) {
             fetchPlayerState(tg.initDataUnsafe.chat.id);
+        }
+    }
+
+    async function adjustSpeed(change) {
+        const newSpeed = Math.round((currentSpeed + change) * 100) / 100;
+        if (newSpeed >= 0.5 && newSpeed <= 2.0) {
+            currentSpeed = newSpeed;
+            audio.playbackRate = currentSpeed;
+            speedDisplay.textContent = `${currentSpeed.toFixed(1)}x`;
+            
+            if (tg.initDataUnsafe?.chat?.id) {
+                await fetch(`/api/player/speed?chatId=${tg.initDataUnsafe.chat.id}&speed=${currentSpeed}`);
+            }
         }
     }
     
@@ -121,6 +185,38 @@ document.addEventListener('DOMContentLoaded', () => {
             hideLoading();
         }
     }
+
+    // Initialize volume from backend state
+    async function initVolume(chatId) {
+        try {
+            const response = await fetch(`/api/player/state?chatId=${chatId}`);
+            if (response.ok) {
+                const state = await response.json();
+                volumeBar.value = state.volume || 50;
+                audio.volume = (state.volume || 50) / 100;
+            }
+        } catch (error) {
+            console.error('Failed to init volume:', error);
+        }
+    }
+
+    // Initialize speed from backend
+    async function initSpeed(chatId) {
+        try {
+            const response = await fetch(`/api/player/state?chatId=${chatId}`);
+            if (response.ok) {
+                const state = await response.json();
+                if (state.playbackSpeed) {
+                    currentSpeed = state.playbackSpeed;
+                    audio.playbackRate = currentSpeed;
+                    speedDisplay.textContent = `${currentSpeed.toFixed(1)}x`;
+                }
+            }
+        } catch (error) {
+            console.error('Failed to init speed:', error);
+        }
+    }
+
     
     function displaySearchResults(results) {
         searchResults.innerHTML = '';
@@ -271,23 +367,42 @@ document.addEventListener('DOMContentLoaded', () => {
     // Modify the updateProgress function to include position updates:
     function updateProgress() {
         const { currentTime, duration } = audio;
-        const progressPercent = (currentTime / duration) * 100;
-        progressBar.value = progressPercent;
-        currentTimeEl.textContent = formatTime(currentTime);
-        
-        // Update backend with current position
-        if (tg.initDataUnsafe?.chat?.id) {
-            fetch(`/api/player/position?chatId=${tg.initDataUnsafe.chat.id}&position=${currentTime}`);
+        // Only update progress bar if not currently seeking
+        if (!isSeeking) {
+            const progressPercent = (currentTime / duration) * 100;
+            progressBar.value = progressPercent;
+            currentTimeEl.textContent = formatTime(currentTime);
         }
-    }
+        
+        // Throttle position updates to backend (max once per second)
+        const now = Date.now();
+        if (tg.initDataUnsafe?.chat?.id && 
+            !isSeeking && 
+            now - lastPositionUpdate > 1000) {
+                lastPositionUpdate = now;
+                fetch(`/api/player/position?chatId=${tg.initDataUnsafe.chat.id}&position=${currentTime}`)
+                .catch(err => console.error('Position update failed:', err));
+            }
+        }
     
     function seek() {
         const seekTime = (progressBar.value / 100) * audio.duration;
         audio.currentTime = seekTime;
+        
+        // Update backend immediately
+        if (tg.initDataUnsafe?.chat?.id) {
+            fetch(`/api/player/seek?chatId=${tg.initDataUnsafe.chat.id}&position=${seekTime}`);
+        }
     }
+
     
     function setVolume() {
-        audio.volume = volumeBar.value / 100;
+        const volume = volumeBar.value;
+        audio.volume = volume / 100;
+        // Persist volume to backend
+        if (tg.initDataUnsafe?.chat?.id) {
+            fetch(`/api/player/volume?chatId=${tg.initDataUnsafe.chat.id}&volume=${volume}`);
+        }
     }
     
     function updatePlaybackState(playing) {

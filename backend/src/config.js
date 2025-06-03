@@ -7,5 +7,7 @@ export const config = {
     baseUrl: process.env.BASE_URL || 'http://localhost:3000',
     tempDir: process.env.TEMP_DIR || './temp',
     ytdlpPath: process.env.YTDLP_PATH || 'yt-dlp',
+    tempDir: process.env.TEMP_DIR || './temp',
+    maxBitrate: process.env.MAX_BITRATE || 320,
     mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017'
 };

@@ -218,6 +218,43 @@ class PlayerService {
             throw new Error('Failed to get player state');
         }
     }
+    /**
+     * Set volume for the player
+     * @param {string} chatId - Telegram chat ID
+     * @param {number} volume - Volume level (0-100)
+     * @returns {Promise<void>}
+     */
+    async setVolume(chatId, volume) {
+        try {
+            const clampedVolume = Math.max(0, Math.min(100, volume));
+            await mongoDBService.updatePlayer(chatId, { 
+                volume: clampedVolume,
+                updatedAt: new Date() 
+            });
+        } catch (error) {
+            console.error('Error setting volume:', error);
+            throw new Error('Failed to set volume');
+        }
+    }
+
+    /**
+     * Set playback speed for the player
+     * @param {string} chatId - Telegram chat ID
+     * @param {number} speed - Playback speed (0.5-2.0)
+     * @returns {Promise<void>}
+     */
+    async setPlaybackSpeed(chatId, speed) {
+        try {
+            const clampedSpeed = Math.max(0.5, Math.min(2.0, speed));
+            await mongoDBService.updatePlayer(chatId, {
+                playbackSpeed: clampedSpeed,
+                updatedAt: new Date()
+            });
+        } catch (error) {
+            console.error('Error setting speed:', error);
+            throw new Error('Failed to set playback speed');
+        }
+    }
 }
 
 export const playerService = new PlayerService();

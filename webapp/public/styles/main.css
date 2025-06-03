@@ -170,3 +170,27 @@ body {
     color: #666;
     padding: 20px;
 }
+.speed-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.speed-btn {
+    background: #4285f4;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#speed-display {
+    min-width: 40px;
+    text-align: center;
+}
+
