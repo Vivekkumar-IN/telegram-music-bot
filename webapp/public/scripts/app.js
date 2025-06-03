@@ -9,12 +9,23 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTrack = null;
     let tracks = [];
     let currentTrackIndex = 0;
-    let isPlaying = false;
-    let updateInterval;
+    // let isPlaying = false;
+    // let updateInterval; // Removed unused variable
     let lastPositionUpdate = 0;
     let isSeeking = false;
     let seekTimeout = null;
     let currentSpeed = 1.0;
+    let audioContext = null;
+    let analyser = null;
+    let dataArray = null;
+    let animationFrameId = null;
+    let lyricsData = null;
+    let currentLyricIndex = 0;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchStartTime = 0;
+    
+
     
     // DOM elements
     const trackArt = document.getElementById('track-art');
@@ -30,10 +41,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalTimeEl = document.getElementById('total-time');
     const volumeBar = document.getElementById('volume-bar');
     const searchResults = document.getElementById('search-results');
-    const loadingIndicator = document.getElementById('loading');
+    // const loadingIndicator = document.getElementById('loading');
     const speedDownBtn = document.getElementById('speed-down');
     const speedUpBtn = document.getElementById('speed-up');
     const speedDisplay = document.getElementById('speed-display');
+    const gestureArea = document.getElementById('gesture-area');
+    const gestureFeedback = document.createElement('div');
+    gestureFeedback.className = 'gesture-feedback';
+    gestureArea.appendChild(gestureFeedback);
+    
     
     // Initialize player
     initPlayer();
@@ -109,6 +125,16 @@ document.addEventListener('DOMContentLoaded', () => {
             playBtn.textContent = '▶';
             updatePlaybackState(false);
         });
+        audio.addEventListener('play', () => {
+            if (!audioContext) initVisualizer();
+        });
+        audio.addEventListener('pause', stopVisualizer);
+        audio.addEventListener('ended', stopVisualizer);
+        gestureArea.addEventListener('touchstart', handleTouchStart);
+        gestureArea.addEventListener('touchmove', handleTouchMove);
+        gestureArea.addEventListener('touchend', handleTouchEnd);
+        gestureArea.addEventListener('dblclick', handleDoubleTap);
+        gestureArea.addEventListener('dblclick', handleDoubleTap);
         
         // Set initial volume
         audio.volume = volumeBar.value / 100;
@@ -118,10 +144,197 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Call this in your initPlayer():
         initSpeed(tg.initDataUnsafe?.chat?.id);
+
+        initVisualizer();
         
         // Check for existing player state
         if (tg.initDataUnsafe?.chat?.id) {
             fetchPlayerState(tg.initDataUnsafe.chat.id);
+        }
+    }
+
+    document.getElementById('toggle-lyrics').addEventListener('click', function() {
+        const lyricsContent = document.getElementById('lyrics-content');
+        lyricsContent.classList.toggle('hidden');
+        this.textContent = lyricsContent.classList.contains('hidden') ? 'Show' : 'Hide';
+    });
+
+    async function fetchLyrics(track) {
+        const lyricsContent = document.getElementById('lyrics-content');
+        lyricsContent.innerHTML = '<p class="loading">Loading lyrics...</p>';
+        try {
+            const response = await fetch(`/api/lyrics?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}`);
+            if (!response.ok) throw new Error('Lyrics not found');
+            
+            lyricsData = await response.json();
+            renderLyrics();
+        } catch (error) {
+            lyricsContent.innerHTML = `<p class="error">${error.message}</p>`;
+            lyricsData = null;
+        }
+    }
+
+    function handleTouchStart(e) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchStartTime = Date.now();
+    }
+    
+    function handleTouchMove(e) {
+        e.preventDefault();
+    }
+
+    function handleTouchEnd(e) {
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+        const deltaX = touchEndX - touchStartX;
+        const deltaY = touchEndY - touchStartY;
+        const timeElapsed = Date.now() - touchStartTime;
+        
+        // Swipe detection (min distance: 50px, max time: 500ms)
+        if (Math.abs(deltaX) > 50 && timeElapsed < 500) {
+            if (deltaX > 0) {
+                // Swipe right - rewind 10 seconds
+                showGestureFeedback('⏪');
+                audio.currentTime = Math.max(0, audio.currentTime - 10);
+            } else {
+                // Swipe left - forward 10 seconds
+                showGestureFeedback('⏩');
+                audio.currentTime = Math.min(audio.duration, audio.currentTime + 10);
+            }
+            return;
+        }
+        
+        // Volume swipe (vertical, min distance: 30px)
+        if (Math.abs(deltaY) > 30 && timeElapsed < 500) {
+            if (deltaY > 0) {
+                // Swipe down - volume down
+                showGestureFeedback('🔉');
+                volumeBar.value = Math.max(0, volumeBar.value - 10);
+            } else {
+                // Swipe up - volume up
+                showGestureFeedback('🔊');
+                volumeBar.value = Math.min(100, volumeBar.value + 10);
+            }
+            setVolume();
+            return;
+        }
+        
+        // Tap detection (short press)
+        if (timeElapsed < 300) {
+            togglePlay();
+        }
+    }
+
+    function handleDoubleTap() {
+        showGestureFeedback(audio.paused ? '▶' : '⏸');
+        togglePlay();
+    }
+    
+    function showGestureFeedback(icon) {
+        gestureFeedback.textContent = icon;
+        gestureFeedback.classList.add('show');
+        setTimeout(() => {
+            gestureFeedback.classList.remove('show');
+        }, 1000);
+    }
+    
+    function renderLyrics() {
+        if (!lyricsData) return;
+        const lyricsContent = document.getElementById('lyrics-content');
+        lyricsContent.innerHTML = '';
+        
+        lyricsData.forEach((line) => {
+            const p = document.createElement('p');
+            p.textContent = line.text;
+            p.dataset.time = line.time;
+            lyricsContent.appendChild(p);
+        });
+    }
+
+    function updateLyricsPosition() {
+        if (!lyricsData) return;
+        
+        const lyricsLines = document.querySelectorAll('#lyrics-content p');
+        const currentTime = audio.currentTime;
+        
+        // Find the current lyric
+        let newIndex = 0;
+        for (let i = 0; i < lyricsData.length; i++) {
+            if (lyricsData[i].time <= currentTime) {
+                newIndex = i;
+            } else {
+                break;
+            }
+        }
+        if (newIndex !== currentLyricIndex) {
+            if (lyricsLines[currentLyricIndex]) {
+                lyricsLines[currentLyricIndex].classList.remove('active');
+            }
+            currentLyricIndex = newIndex;
+            if (lyricsLines[currentLyricIndex]) {
+                lyricsLines[currentLyricIndex].classList.add('active');
+                
+                // Auto-scroll to active lyric
+                lyricsLines[currentLyricIndex].scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }
+        }
+    }
+
+
+
+    function initVisualizer() {
+        try {
+            const AudioCtx = window.AudioContext ? window.AudioContext : (window.webkitAudioContext ? window.webkitAudioContext : null);
+            if (!AudioCtx) throw new Error('Web Audio API not supported');
+            audioContext = new AudioCtx();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+             // Connect audio element to analyzer
+             const source = audioContext.createMediaElementSource(audio);
+             source.connect(analyser);
+             analyser.connect(audioContext.destination);
+             
+             // Start visualization
+            visualize();
+        } catch (error) {
+            console.error('AudioContext error:', error);
+        }
+    }
+
+    function visualize() {
+        if (!analyser) return;
+        
+        const canvas = document.getElementById('visualizer-canvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        
+        analyser.getByteFrequencyData(dataArray);
+        
+        ctx.clearRect(0, 0, width, height);
+        
+        // Draw bars
+        const barWidth = (width / dataArray.length) * 2.5;
+        
+        let x = 0;
+        
+        for (let i = 0; i < dataArray.length; i++) {
+            const barHeight = (dataArray[i] / 255) * height;
+            ctx.fillStyle = `hsl(${200 + (i * 2)}, 100%, 60%)`;
+            ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+            x += barWidth + 1;
+        }
+        animationFrameId = requestAnimationFrame(visualize);
+    }
+    
+    function stopVisualizer() {
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
         }
     }
 
@@ -280,6 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             hideLoading();
         }
+        fetchLyrics(track);
     }
     
     async function playCurrentTrack(position = 0) {
@@ -383,48 +597,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 fetch(`/api/player/position?chatId=${tg.initDataUnsafe.chat.id}&position=${currentTime}`)
                 .catch(err => console.error('Position update failed:', err));
             }
+            updateLyricsPosition();
         }
     
-    function seek() {
-        const seekTime = (progressBar.value / 100) * audio.duration;
-        audio.currentTime = seekTime;
-        
-        // Update backend immediately
-        if (tg.initDataUnsafe?.chat?.id) {
-            fetch(`/api/player/seek?chatId=${tg.initDataUnsafe.chat.id}&position=${seekTime}`);
-        }
-    }
 
-    
     function setVolume() {
-        const volume = volumeBar.value;
+        // Ensure volumeBar is defined in this scope
+        const volumeBarEl = document.getElementById('volume-bar');
+        const volume = volumeBarEl.value;
         audio.volume = volume / 100;
         // Persist volume to backend
         if (tg.initDataUnsafe?.chat?.id) {
             fetch(`/api/player/volume?chatId=${tg.initDataUnsafe.chat.id}&volume=${volume}`);
         }
     }
-    
     function updatePlaybackState(playing) {
         if (tg.initDataUnsafe?.chat?.id) {
             fetch(`/api/player/${playing ? 'resume' : 'pause'}?chatId=${tg.initDataUnsafe.chat.id}`);
         }
     }
-    
+
     function formatTime(seconds) {
         const mins = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
         return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     }
-    
+
     function showLoading() {
-        loadingIndicator.style.display = 'block';
+        const loadingIndicatorEl = document.getElementById('loading');
+        if (loadingIndicatorEl) loadingIndicatorEl.style.display = 'block';
     }
-    
+
     function hideLoading() {
-        loadingIndicator.style.display = 'none';
+        const loadingIndicatorEl = document.getElementById('loading');
+        if (loadingIndicatorEl) loadingIndicatorEl.style.display = 'none';
     }
-    
+
     function showError(message) {
         const errorEl = document.createElement('div');
         errorEl.className = 'error-message';
@@ -433,4 +641,5 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => errorEl.remove(), 3000);
     }
 });
+
 

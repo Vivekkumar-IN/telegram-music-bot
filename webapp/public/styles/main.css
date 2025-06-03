@@ -194,3 +194,85 @@ body {
     text-align: center;
 }
 
+.visualizer-container {
+  margin: 20px 0;
+  width: 100%;
+  height: 150px;
+}
+
+#visualizer-canvas {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  background: linear-gradient(to bottom, #1a1a2e, #16213e);
+}
+
+.lyrics-container {
+  margin: 20px 0;
+  background: rgba(0,0,0,0.2);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.lyrics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background: rgba(0,0,0,0.3);
+}
+
+.lyrics-content {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 15px;
+  transition: max-height 0.3s ease;
+}
+
+.lyrics-content.hidden {
+  max-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.lyrics-content p {
+  margin: 12px 0;
+  color: #ddd;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.lyrics-content p.active {
+  color: #fff;
+  font-size: 1.2em;
+  font-weight: bold;
+  transform: scale(1.05);
+}
+
+.gesture-area {
+  touch-action: pan-y;
+  position: relative;
+  overflow: hidden;
+}
+
+.gesture-feedback {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  z-index: 50;
+  background: rgba(0,0,0,0.5);
+}
+
+.gesture-feedback.show {
+  opacity: 1;
+}
+
