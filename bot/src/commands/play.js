@@ -1,8 +1,7 @@
 import { Telegraf } from 'telegraf';
-import { generateWebAppUrl } from '../webapp';
-import { playerService } from '../../backend/src/services/player';
+import axios from 'axios';
 import yts from 'yt-search';
-import { streamService } from '../../backend/src/services/ytdlp';
+import { generateWebAppUrl } from '../webapp';
 
 export const setupPlayCommand = (bot) => {
     // Play command - starts or queues playback
@@ -10,6 +9,7 @@ export const setupPlayCommand = (bot) => {
         try {
             const chatId = ctx.chat.id;
             const query = ctx.message.text.split(' ').slice(1).join(' ');
+            const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:3000/api';
             
             if (!query) {
                 return ctx.reply('Please provide a search query or YouTube URL after /play');
@@ -37,11 +37,10 @@ export const setupPlayCommand = (bot) => {
                     url: info.url
                 };
 
-                // Add to player
-                const player = playerService.play(chatId, track);
-                
-                // Generate stream URL
-                const streamUrl = await streamService.createStream(videoId);
+                // Add to player and get stream URL
+                await axios.post(`${backendUrl}/player/${chatId}/play`, { track });
+                const streamResponse = await axios.get(`${backendUrl}/stream?videoId=${videoId}`);
+                const streamUrl = streamResponse.data.streamUrl;
                 
                 return ctx.replyWithAudio(streamUrl, {
                     title: track.title,
@@ -74,7 +73,9 @@ export const setupPlayCommand = (bot) => {
     bot.command('pause', async (ctx) => {
         try {
             const chatId = ctx.chat.id;
-            const player = playerService.pause(chatId);
+            const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:3000/api';
+            const response = await axios.post(`${backendUrl}/player/${chatId}/pause`);
+            const player = response.data.player;
             
             if (!player.currentTrack) {
                 return ctx.reply('No active playback to pause');
@@ -93,7 +94,9 @@ export const setupPlayCommand = (bot) => {
     bot.command('resume', async (ctx) => {
         try {
             const chatId = ctx.chat.id;
-            const player = playerService.resume(chatId);
+            const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:3000/api';
+            const response = await axios.post(`${backendUrl}/player/${chatId}/resume`);
+            const player = response.data.player;
             
             if (!player.currentTrack) {
                 return ctx.reply('No track to resume');
@@ -112,7 +115,9 @@ export const setupPlayCommand = (bot) => {
     bot.command('stop', async (ctx) => {
         try {
             const chatId = ctx.chat.id;
-            const player = playerService.stop(chatId);
+            const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:3000/api';
+            const response = await axios.post(`${backendUrl}/player/${chatId}/stop`);
+            const player = response.data.player;
             
             if (!player.currentTrack) {
                 return ctx.reply('No active playback to stop');
@@ -129,7 +134,8 @@ export const setupPlayCommand = (bot) => {
     bot.command('end', async (ctx) => {
         try {
             const chatId = ctx.chat.id;
-            playerService.end(chatId);
+            const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:3000/api';
+            await axios.post(`${backendUrl}/player/${chatId}/end`);
             await ctx.reply('❌ Playback session ended');
         } catch (error) {
             console.error('End error:', error);
@@ -141,7 +147,9 @@ export const setupPlayCommand = (bot) => {
     bot.command('status', async (ctx) => {
         try {
             const chatId = ctx.chat.id;
-            const player = playerService.getState(chatId);
+            const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:3000/api';
+            const response = await axios.get(`${backendUrl}/player/${chatId}/status`);
+            const player = response.data.player;
             
             if (!player.currentTrack) {
                 return ctx.reply('No active playback');
@@ -178,14 +186,10 @@ export const setupPlayCommand = (bot) => {
 
     // Generate player control buttons
     function getPlayerControls(chatId) {
-        const player = playerService.getState(chatId);
-        const isPlaying = player.isPlaying;
-        
         return {
             inline_keyboard: [
                 [
                     { text: '⏮ Previous', callback_data: 'prev' },
-                    { text: isPlaying ? '⏸ Pause' : '▶ Play', callback_data: isPlaying ? 'pause' : 'play' },
                     { text: '⏭ Next', callback_data: 'next' }
                 ],
                 [
@@ -199,33 +203,4 @@ export const setupPlayCommand = (bot) => {
             ]
         };
     }
-
-    // Handle button callbacks
-    bot.action('play', async (ctx) => {
-        const chatId = ctx.chat.id;
-        playerService.resume(chatId);
-        await ctx.editMessageReplyMarkup(getPlayerControls(chatId));
-        await ctx.answerCbQuery('▶ Playback resumed');
-    });
-
-    bot.action('pause', async (ctx) => {
-        const chatId = ctx.chat.id;
-        playerService.pause(chatId);
-        await ctx.editMessageReplyMarkup(getPlayerControls(chatId));
-        await ctx.answerCbQuery('⏸ Playback paused');
-    });
-
-    bot.action('stop', async (ctx) => {
-        const chatId = ctx.chat.id;
-        playerService.stop(chatId);
-        await ctx.deleteMessage();
-        await ctx.answerCbQuery('⏹ Playback stopped');
-    });
-
-    bot.action('end', async (ctx) => {
-        const chatId = ctx.chat.id;
-        playerService.end(chatId);
-        await ctx.deleteMessage();
-        await ctx.answerCbQuery('❌ Session ended');
-    });
 };

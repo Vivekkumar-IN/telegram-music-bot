@@ -12,7 +12,6 @@ class MongoDBService {
         await this.client.connect();
         this.db = this.client.db('telegramMusicBot');
         this.playersCollection = this.db.collection('players');
-        console.log('Connected to MongoDB');
     }
 
     async getPlayer(chatId) {
@@ -48,3 +47,4 @@ class MongoDBService {
 }
 
 export const mongoDBService = new MongoDBService();
+console.log('Connected to MongoDB');
