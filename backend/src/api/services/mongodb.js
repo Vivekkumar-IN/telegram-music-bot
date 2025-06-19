@@ -44,6 +44,19 @@ class MongoDBService {
     async deletePlayer(chatId) {
         await this.playersCollection.deleteOne({ chatId });
     }
+
+    async createPlaylist({ userId, name, tracks }) {
+        return this.playlistsCollection.insertOne({
+            userId,
+            name,
+            tracks,
+            created: new Date()
+        });
+    }
+
+    async getUserPlaylists(userId) {
+        return this.playlistsCollection.find({ userId }).toArray();
+    }
 }
 
 export const mongoDBService = new MongoDBService();

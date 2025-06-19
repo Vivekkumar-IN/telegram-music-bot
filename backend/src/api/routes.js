@@ -34,4 +34,17 @@ router.get('/player/speed', async (req, res) => {
     res.json({ success: true });
 });
 
+router.post('/playlists', async (req, res) => {
+  try {
+    const playlist = await mongoDBService.createPlaylist(req.body);
+    res.json(playlist);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+router.get('/playlists/:userId', async (req, res) => {
+  const playlists = await mongoDBService.getUserPlaylists(req.params.userId);
+  res.json(playlists);
+});
 export default router;
