@@ -1,0 +1,31 @@
+{
+  "name": "telegram-music-bot",
+  "description": "Backend server for Telegram Music Bot",
+  "env": {
+    "BACKEND_API_URL": {
+      "description": "Base URL for backend API",
+      "value": "http://localhost:3000/api",
+      "required": true      
+    },
+    "WEBAPP_BASE_URL": {
+      "description": "Base URL for the web app frontend",
+      "value": "https://t.me/username/myapp",
+      "required": true
+    },
+    "TELEGRAM_BOT_TOKEN": {
+      "description": "Telegram bot token to access the Telegram Bot API",
+      "value": "",
+      "required": true
+    },
+    "MONGO_URI": {
+      "description": "MongoDB connection string",
+      "value": "",
+      "required": true
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ]
+}

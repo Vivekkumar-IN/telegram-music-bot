@@ -1,60 +1,64 @@
 import express from 'express';
 import cors from 'cors';
-import router from './api/routes';
-import { config } from './config';
-import { mongoDBService } from './services/mongodb';
-import { streamCleaner } from './services/streamCleaner';
-import { mongoMonitor } from './services/mongoMonitor';
-import { bot } from './services/telegram';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import router from './api/routes.js';
+import { config } from './config.js';
+import { mongoDBService } from './api/services/mongodb.js';
+import { streamCleaner } from './api/services/streamCleaner.js';
+import { mongoMonitor } from './api/services/mongoMonitor.js';
+import { bot } from './api/services/telegram.js';
 
 const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+
+app.use(express.static(path.join(__dirname, '../static')));
 streamCleaner.cleanup();
 setInterval(() => {
-    console.log('📊 MongoDB Status:', mongoMonitor.status);
+  console.log('📊 MongoDB Status:', mongoMonitor.status);
 }, 60000);
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Routes
 app.use('/api', router);
 
-// Error handler
 app.use((err, req, res, next) => {
-    console.error('❌ Unhandled error:', err.stack);
-    res.status(500).send('Something broke!');
+  console.error('❌ Unhandled error:', err.stack);
+  res.status(500).send('Something broke!');
 });
 
 const PORT = config.port || 3000;
 
 (async () => {
-    try {
-        await mongoDBService.connect();
+  try {
+    await mongoDBService.connect();
 
-        app.listen(PORT, () => {
-            console.log(`✅ Server running on port ${PORT}`);
-        });
+    app.listen(PORT, () => {
+      console.log(`✅ Server running on port ${PORT}`);
+    });
 
-        await bot.launch();
-        console.log('🤖 Telegram bot started successfully');
-    } catch (err) {
-        console.error('❌ Startup error:', err);
-        process.exit(1);
-    }
+    await bot.launch();
+    console.log('🤖 Telegram bot started successfully');
+  } catch (err) {
+    console.error('❌ Startup error:', err);
+    process.exit(1);
+  }
 })();
 
-// Graceful shutdown
+// Graceful shutdown handling
 process.once('SIGINT', async () => {
-    console.log('🔻 SIGINT received, stopping bot...');
-    await bot.stop('SIGINT');
-    process.exit(0);
+  console.log('🔻 SIGINT received, stopping bot...');
+  await bot.stop('SIGINT');
+  process.exit(0);
 });
 
 process.once('SIGTERM', async () => {
-    console.log('🔻 SIGTERM received, stopping bot...');
-    await bot.stop('SIGTERM');
-    process.exit(0);
+  console.log('🔻 SIGTERM received, stopping bot...');
+  await bot.stop('SIGTERM');
+  process.exit(0);
 });
 
 export default app;
