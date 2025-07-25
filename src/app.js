@@ -3,7 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import router from './api/routes.js';
-import { config } from './config.js';
+import  config  from './config.js';
 import { mongoDBService } from './api/services/mongodb.js';
 import { streamCleaner } from './api/services/streamCleaner.js';
 import { mongoMonitor } from './api/services/mongoMonitor.js';
