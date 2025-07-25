@@ -1,5 +1,5 @@
 import yts from 'yt-search';
-import { cache } from '../../services/cache.js';
+import { cache } from '../services/cache.js';
 
 export const search = async (req, res) => {
     try {
