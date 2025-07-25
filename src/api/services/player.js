@@ -1,4 +1,4 @@
-import { mongoDBService } from './mongodb';
+import { mongoDBService } from './mongodb.js';
 
 class PlayerService {
     /**

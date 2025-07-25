@@ -1,13 +1,11 @@
 import {
-  config
-} from '../config';
-import {
   Telegraf
 } from 'telegraf';
 
 import axios from 'axios';
 import yts from 'yt-search';
 
+import config from '../config.js';
 const bot = new Telegraf(config.botToken);
 
 export const generateWebAppUrl = (query) => {
