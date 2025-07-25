@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-export const config = {
+export default const config = {
     botToken: process.env.TELEGRAM_BOT_TOKEN || "1234567890:AABCDEFGJIJKLMNPQISSN",
     port: process.env.PORT || 3000,
     baseUrl: process.env.BASE_URL || 'http://localhost:3000',
