@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { config } from '../config.js';
+import config from '../../config.js';
 
 class StreamCleaner {
     constructor() {
