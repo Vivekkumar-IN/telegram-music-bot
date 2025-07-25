@@ -1,6 +1,5 @@
 import express from 'express';
-import { search, stream } from './controllers';
-
+import { search, stream } from './controllers/index.js';
 const router = express.Router();
 
 // Search endpoint
