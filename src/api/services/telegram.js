@@ -1,4 +1,4 @@
-import Telegraf from 'telegraf';
+import { Telegraf } from 'telegraf';
 
 import axios from 'axios';
 import yts from 'yt-search';
