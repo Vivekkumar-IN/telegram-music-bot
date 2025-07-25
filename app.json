@@ -1,6 +1,7 @@
 {
   "name": "telegram-music-bot",
   "description": "Backend server for Telegram Music Bot",
+  "stack": "container",
   "env": {
     "BACKEND_API_URL": {
       "description": "Base URL for backend API",
