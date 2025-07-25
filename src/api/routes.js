@@ -6,7 +6,7 @@ const router = express.Router();
 router.get('/search', search);
 
 // Stream endpoint
-router.get('/stream', stream);
+router.get('/stream', search);
 
 // position updates
 router.get('/player/position', async (req, res) => {
