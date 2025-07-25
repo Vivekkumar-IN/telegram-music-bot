@@ -7,7 +7,7 @@ import config from '../../config.js';
 const bot = new Telegraf(config.botToken);
 
 export const generateWebAppUrl = (query) => {
-  return `${config.webAppBaseUrl}?query=${encodeURIComponent(query)}`;
+  return `${config.webAppBaseUrl}?startapp=${encodeURIComponent(query)}`;
 };
 
 
