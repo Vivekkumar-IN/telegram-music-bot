@@ -142,4 +142,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you find this project useful, consider starring the repository or buying me a coffee!
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/pranav_saraswat)
-
