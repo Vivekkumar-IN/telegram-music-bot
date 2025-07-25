@@ -1,6 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize Telegram Web App
     const tg = window.Telegram.WebApp;
+
+  if (!tg || !tg.initDataUnsafe) {
+
+    return 
+  }
     tg.expand();
     tg.enableClosingConfirmation();
     
@@ -54,9 +59,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize player
     initPlayer();
     
-    // Parse query from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const query = urlParams.get('query');
+
+    const query  = tg.initDataUnsafe.start_param;
     
     if (query) {
         searchTracks(query);
